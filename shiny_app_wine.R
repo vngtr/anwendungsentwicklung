@@ -9,7 +9,7 @@ library(shiny)
 library(shinyWidgets)
 library(ggplot2)
 
-setwd("C:/Users/jojoh/OneDrive/Dokumente/Studium/Data Science & Business Analytics/Term 6/Anwendungsentwicklung/Prüfungsleistung")
+#setwd("C:/Users/jojoh/OneDrive/Dokumente/Studium/Data Science & Business Analytics/Term 6/Anwendungsentwicklung/Prüfungsleistung")
 
 df <- read.csv("winequality_cleaned.csv")
 
@@ -28,30 +28,38 @@ spalten <- c(
 )
 
 ui <- fluidPage(
-  titlePanel("Shiny App: Weinqualität"),
-  fluidRow(
-    column(4,
-           selectInput("variable", "Interessierendes Attribut auswählen:", choices = setNames(names(spalten), spalten)),
-           radioButtons("options", "Klasse auswählen:", 
-                        choices = list(
-                          "Qualität" = "qualität", 
-                          "Weintyp" = "typ",
-                          "Qualität und Weintyp" = "qualität_typ"
-                        ),
-                        selected = "qualität")
+  titlePanel("Analyse Weinqualität"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("variable", "Interessierendes Attribut auswählen:", choices = setNames(names(spalten), spalten)),
+      radioButtons("options", "Klasse auswählen:", 
+                   choices = list(
+                     "Qualität" = "qualität", 
+                     "Weintyp" = "typ",
+                     "Qualität und Weintyp" = "qualität_typ"
+                   ),
+                   selected = "qualität")
     ),
-    column(8,
-           selectInput("alpha", "Signifikanzniveau:", choices = c(0.5,0.1, 0.05, 0.01), selected = 0.05),
-           verbatimTextOutput("testOutput")
-    )
-  ),
-  fluidRow(
-    column(12,
-           tags$div(style = "margin-top: 50px;"),  # Erhöhter Abstand vor dem Plot
-           plotOutput("violinPlot", height = "400px")
+  mainPanel(
+    tabsetPanel(
+      id = "results",
+      tabPanel("Daten explorieren"),
+      tabPanel("erweiterte Datenanalyse", 
+                fluidRow(
+                  column(12,
+                         selectInput("alpha", "Signifikanzniveau:", choices = c(0.5,0.1, 0.05, 0.01), selected = 0.05),
+                         verbatimTextOutput("testOutput")
+                  ),
+                  column(12,
+                        tags$div(style = "margin-top: 50px;"),  # Erhöhter Abstand vor dem Plot
+                        plotOutput("violinPlot", height = "400px")
+                  ),
+                )
+              ),
+        )
+      )
     )
   )
-)
 
 server <- function(input, output) {
   output$violinPlot <- renderPlot({
