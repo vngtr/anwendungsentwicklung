@@ -47,9 +47,3 @@ df$qualität <- df$qualität - 2
 write.csv(df, "winequality_cleaned.csv", row.names = FALSE)
 
 
-
-
-t_test_result <- t.test(fixierte.säure ~ typ, data = df)
-print(t_test_result)
-
-

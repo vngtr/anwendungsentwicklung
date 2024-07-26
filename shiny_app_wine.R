@@ -28,10 +28,10 @@ spalten <- c(
 )
 
 ui <- fluidPage(
-  titlePanel("Analyse Weinqualität"),
+  titlePanel("Shiny Dashboard: Weinqualität"),
   sidebarLayout(
     sidebarPanel(
-      selectInput("variable", "Interessierendes Attribut auswählen:", choices = setNames(names(spalten), spalten)),
+      selectInput("variable", "Kontinuierliche Variable auswählen:", choices = setNames(names(spalten), spalten)),
       radioButtons("options", "Klasse auswählen:", 
                    choices = list(
                      "Qualität" = "qualität", 
@@ -47,11 +47,11 @@ ui <- fluidPage(
       tabPanel("erweiterte Datenanalyse", 
                 fluidRow(
                   column(12,
-                         selectInput("alpha", "Signifikanzniveau:", choices = c(0.5,0.1, 0.05, 0.01), selected = 0.05),
+                         selectInput("alpha", "Signifikanzniveau:", choices = c(0.1, 0.05, 0.01, 0.005, 0.001), selected = 0.05),
                          verbatimTextOutput("testOutput")
                   ),
                   column(12,
-                        tags$div(style = "margin-top: 50px;"),  # Erhöhter Abstand vor dem Plot
+                        tags$div(style = "margin-top: 100px;"),  # Erhöhter Abstand vor dem Plot
                         plotOutput("violinPlot", height = "400px")
                   ),
                 )
@@ -80,8 +80,10 @@ server <- function(input, output) {
         theme_minimal() +
         theme(
           plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
-          axis.title.x = element_text(size = 14),
-          axis.title.y = element_text(size = 14),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 14),
           legend.position = "right"
         )
     } else if (input$options == "qualität") {
@@ -97,8 +99,10 @@ server <- function(input, output) {
         theme_minimal() +
         theme(
           plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
-          axis.title.x = element_text(size = 14),
-          axis.title.y = element_text(size = 14),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 14),
           legend.position = "none"
         )
     } else if (input$options == "typ") {
@@ -115,8 +119,10 @@ server <- function(input, output) {
         theme_minimal() +
         theme(
           plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
-          axis.title.x = element_text(size = 14),
-          axis.title.y = element_text(size = 14),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16),
+          axis.text.x = element_text(size = 14),
+          axis.text.y = element_text(size = 14),
           legend.position = "none"
         )
     }
@@ -124,30 +130,52 @@ server <- function(input, output) {
   
   output$testOutput <- renderPrint({
     variable <- input$variable
-    alpha <- input$alpha
+    alpha <- as.numeric(input$alpha)
     
     if (input$options == "typ") {
-      t_test_result <- t.test(df[[variable]] ~ df$typ)
-      cat("T-Test für", spalten[variable], "zwischen Rotwein und Weißwein\n")
-      cat("t-Wert:", t_test_result$statistic, "\n")
-      cat("p-Wert:", t_test_result$p.value, "\n")
-      if (t_test_result$p.value < alpha) {
-        cat("Ergebnis: Es gibt einen statistisch signifikanten Unterschied (bei einem alpha =", alpha, ")\nzwischen der Variable", spalten[variable], "in Abhängigkeit des Weintyps\n")
+      wilcox_result <- wilcox.test(df[[variable]] ~ df$typ)
+      p_wert_w <- wilcox_result$p.value
+      med_rot <- median(df[df$typ =="Rotwein", variable])
+      med_weiß <- median(df[df$typ =="Weißwein", variable])
+      mean_rot <- mean(df[df$typ == "Rotwein", variable])
+      mean_weiß <- mean(df[df$typ == "Weißwein", variable])
+      sd_rot <- sd(df[df$typ == "Rotwein", variable])
+      sd_weiß <- sd(df[df$typ == "Weißwein", variable])
+      n_rot <- sum(df$typ == "Rotwein")
+      n_weiß <- sum(df$typ == "Weißwein")
+      SDp <- sqrt(((n_rot - 1) * sd_rot^2 + (n_weiß - 1) * sd_weiß^2) / (n_rot + n_weiß - 2))
+      cohen_d <- (mean_rot - mean_weiß) / SDp
+      cohen_d_interpretation <- ifelse(cohen_d >= 0.5, "stark", 
+                                       ifelse(cohen_d >= 0.3, "mittel", 
+                                              ifelse(cohen_d >= 0.1, "schwach", "sehr schwach")))
+      cat("Mann-Whitney-U-Test für die Variable", spalten[variable], "zwischen Rotwein und Weißwein:\n")
+      cat("W-Statistik:", wilcox_result$statistic, "\n")
+      cat("p-Wert:", p_wert_w, "\n")
+      cat("Median Rotwein:",med_rot, "| Median Weißwein:",med_weiß,"\n")
+      cat("Effektstärke (Cohen´s d):", cohen_d, "\n")
+      
+      if (p_wert_w < alpha) {
+        cat("Ergebnis: Es gibt einen statistisch signifikanten Unterschied (bei einem alpha =", alpha, ")\nzwischen der Variable", spalten[variable], "in Abhängigkeit des Weintyps. Nach Cohen (1992) ist dieser Unterschied" ,cohen_d_interpretation, ".\n")
       } else {
-        cat("Ergebnis: Der Unterschied zwischen der Variable", spalten[variable], "in Abhängigkeit des Weintyps\nist nicht signifikant (bei einem alpha =", alpha, ")\n")
+        cat("Ergebnis: Der Unterschied zwischen der Variable", spalten[variable], "in Abhängigkeit des Weintyps ist nicht signifikant (bei einem alpha =", alpha, "). Nach Cohen (1992) ist dieser Unterschied" ,cohen_d_interpretation, ".\n")
       }
     } else if (input$options == "qualität") {
-      kruskal_test_result <- kruskal.test(df[[variable]] ~ as.factor(df$qualität))
-      cat("Kruskal-Wallis-Test für", spalten[variable], "nach Qualitätsstufen\n")
-      cat("Chi-Quadrat-Wert:", kruskal_test_result$statistic, "\n")
-      cat("p-Wert:", kruskal_test_result$p.value, "\n")
-      if (kruskal_test_result$p.value < alpha) {
-        cat("Ergebnis: Es gibt einen statistisch signifikanten Unterschied (bei einem alpha =", alpha, ")\nzwischen der Variable", spalten[variable], "in Abhängigkeit der Qualitätsstufen\n")
+      spearman_result <- suppressWarnings(cor.test(df[[variable]], df$qualität, method="spearman"))
+      spearman_koeffizient <- spearman_result$estimate
+      staerke <- ifelse(abs(spearman_koeffizient) >= 0.5, "stark",
+                        ifelse(abs(spearman_koeffizient) >= 0.2, "mittleren", "schwach"))
+      richtung <- ifelse(spearman_koeffizient > 0, "positiven", "negativen")
+      cat("Rangkorrelationskoeffizient nach Spearman für", spalten[variable], "und der Qualität:\n")
+      cat("\u03C1:", spearman_koeffizient, "\n")
+      cat("p-Wert:", spearman_result$p.value, "\n")
+      
+      if (spearman_result$p.value < alpha) {
+        cat("Ergebnis: Es gibt einen", staerke, richtung, "Zusammenhang zwischen Qualität und", spalten[variable],".Der Zusammenhang ist signifikant (bei einem alpha =", alpha,").\n")
       } else {
-        cat("Ergebnis: Der Unterschied zwischen der Variable", spalten[variable], "in Abhängigkeit der Qualitätsstufen\nist nicht signifikant (bei einem alpha =", alpha, ")\n")
+        cat("Ergebnis: Es gibt einen", staerke, richtung, "Zusammenhang zwischen Qualität und", spalten[variable],".Der Zusammenhang ist nicht signifikant (bei einem alpha =", alpha,").\n")
       }
     } else {
-      cat("Bitte eine gültige Option auswählen, um den Test durchzuführen.")
+      cat("Bitte wählen Sie Qualität oder Weintyp um die statistischen Tests durchzuführen.")
     }
   })
 }
