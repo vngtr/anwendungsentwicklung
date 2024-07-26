@@ -31,14 +31,20 @@ ui <- fluidPage(
   titlePanel("Shiny Dashboard: Weinqualität"),
   sidebarLayout(
     sidebarPanel(
+      tags$div(style = "margin-top: 20px;"),
       selectInput("variable", "Kontinuierliche Variable auswählen:", choices = setNames(names(spalten), spalten)),
+      verbatimTextOutput("statValues"),
+      tags$div(style = "margin-top: 50px;"),
       radioButtons("options", "Klasse auswählen:", 
                    choices = list(
                      "Qualität" = "qualität", 
                      "Weintyp" = "typ",
                      "Qualität und Weintyp" = "qualität_typ"
                    ),
-                   selected = "qualität")
+                   selected = "qualität"),
+      tags$div(style = "margin-top: 50px;"),
+      selectInput("alpha", "Signifikanzniveau:", choices = c(0.1, 0.05, 0.01, 0.005, 0.001), selected = 0.05),
+      
     ),
   mainPanel(
     tabsetPanel(
@@ -47,7 +53,6 @@ ui <- fluidPage(
       tabPanel("erweiterte Datenanalyse", 
                 fluidRow(
                   column(12,
-                         selectInput("alpha", "Signifikanzniveau:", choices = c(0.1, 0.05, 0.01, 0.005, 0.001), selected = 0.05),
                          verbatimTextOutput("testOutput")
                   ),
                   column(12,
@@ -128,6 +133,15 @@ server <- function(input, output) {
     }
   })
   
+  output$statValues <- renderPrint({
+    variable <- input$variable
+      data <- df[[variable]]
+      cat("Mittelwert:", mean(data), "\n")
+      cat("Median:", median(data), "\n")
+      cat("Minimum:", min(data), "\n")
+      cat("Maximum:", max(data), "\n")
+      cat("Standardabweichung:", sd(data), "\n")
+  })
   output$testOutput <- renderPrint({
     variable <- input$variable
     alpha <- as.numeric(input$alpha)
@@ -179,6 +193,6 @@ server <- function(input, output) {
     }
   })
 }
-###
+####
 # Run the Shiny app
 shinyApp(ui = ui, server = server)
