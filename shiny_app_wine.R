@@ -57,7 +57,18 @@ ui <- fluidPage(                                          #Hautcontainer-Layout 
     mainPanel(                                                           #Hauptbereich definieren (Anzeige der Ergebnisse: Tests & Plot)
       tabsetPanel(                                                       #Registerkarten/Tabs zur Navigation erstellen
         id = "results",                                                  #Dem Panel eine ID zuweisen für den Server-Code
-        tabPanel("Daten explorieren"),                                   #Registerkartenpanel Datenexploration  
+        tabPanel("Daten explorieren",                                   #Registerkartenpanel Datenexploration  
+                  fluidRow(                                              #erstellt Zeile  
+                    column(12,                                           #Spalte für Histogramm und Data Table über gesamte Seite 
+                           plotOutput("histPlot"),                       #Plot des Histograms 
+                           tags$div(style = "margin-top: 50px;"),        #Erhöhter Abstand vor dem Plot
+                           dataTableOutput("dataTable")                  #Anzeige der Daten in Tabellenformat 
+                    ),
+                    column(12, 
+                           dataTableOutput('dttbl')
+                           )
+                  )
+        ),
         tabPanel("erweiterte Datenanalyse",                              #Registerkartenpanel Datenanalyse
                  fluidRow(                                               #erstellt Zeile
                    column(12,                                            #Spalte für Test-Output (über gesamte Breite) als Text mit dynamischem UI Inhalt
@@ -73,7 +84,6 @@ ui <- fluidPage(                                          #Hautcontainer-Layout 
     )
   )
 )
-
 server <- function(input, output) {                                   #Server-Funktion (enthält Serverlogik)
   output$violinPlot <- renderPlot({                                   #Violin-Plot als Ausgabeelement definieren
     data <- df
@@ -215,6 +225,27 @@ server <- function(input, output) {                                   #Server-Fu
       cat("Bitte wählen Sie Qualität oder Weintyp um die statistischen Tests durchzuführen.")            #Gibt eine Nachricht aus, wenn weder "typ" noch "qualität" als Option ausgewählt ist.
     }
   })
+  output$histPlot <- renderPlot({                                                                        #
+    variable <- input$variable
+    data <- df[[variable]]
+    ggplot(df, aes(x = .data[[variable]])) +
+      geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +
+      labs(
+        title = paste("Histogramm von", spalten[variable]),
+        x = spalten[variable],
+        y = "Häufigkeit"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14)
+      )
+  })
+  
+  output$dttbl<- renderDataTable(df, options = list(pageLenght=5))
 }
 
 #App starten
