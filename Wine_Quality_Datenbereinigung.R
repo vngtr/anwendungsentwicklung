@@ -1,4 +1,5 @@
 #install.packages("psych")
+#install.packages("e1071")
 
 # Workspace leeren
 rm(list = ls())
@@ -6,6 +7,7 @@ gc()
 
 library(psych)
 library(dplyr)
+library(e1071)
 
 # Pfad ändern
 setwd("C:/Users/jojoh/OneDrive/Dokumente/Studium/Data Science & Business Analytics/Term 6/Anwendungsentwicklung/Prüfungsleistung")
@@ -47,3 +49,46 @@ df$qualität <- df$qualität - 2
 write.csv(df, "winequality_cleaned.csv", row.names = FALSE)
 
 
+dataset<-read.csv("winequality_cleaned.csv")
+
+#Zusammenfassende Statistiken
+summary(dataset)
+
+# Erweiterte beschreibende Statistiken
+library(psych)
+describe(dataset)
+pairs.panels(dataset)
+
+#QQ-Plots zur Untersuchung der Verteilung
+create_qq_plots <- function(dataset) {
+  numeric_cols <- sapply(dataset, is.numeric)
+  par(mfrow = c(3, 4))
+  
+  for (colname in names(dataset)[numeric_cols]) {
+    qqnorm(dataset[[colname]], main = paste("QQ Plot of", colname))
+    qqline(dataset[[colname]], col = "red")
+  }
+  
+  par(mfrow = c(1, 1)) 
+}
+
+# QQ-Plots erstellen
+create_qq_plots(df)
+
+
+create_plots <- function(dataset) {
+  numeric_cols <- sapply(dataset, is.numeric)
+  num_plots <- sum(numeric_cols)
+  
+  par(mfrow = c(3, 4)) # Layout für 4x6 Plots (22 Plots auf einer Seite)
+  
+  for (colname in names(dataset)[numeric_cols]) {
+    hist(dataset[[colname]], main = paste("Histogram of", colname), 
+         xlab = colname, col = "lightblue", border = "black", probability = TRUE)
+    skewness_value <- round(e1071::skewness(dataset[[colname]]), 2)
+    legend("topright", legend = paste("Skewness:", skewness_value), bty = "n")
+  }
+  
+  par(mfrow = c(1, 1)) # Layout zurücksetzen
+}
+create_plots(df)
