@@ -3,7 +3,7 @@
 #install.packages("shinyWidgets")
 #install.packages("rstudioapi")
 
-#Workspave leeren
+#Workspace leeren
 rm(list = ls())
 gc()
 
@@ -207,8 +207,10 @@ server <- function(input, output) {                                   #Server-Fu
       }
       
       
-    } else if (input$options == "qualität") {                                                            #Test 2 (bei Auswahl der Qualität): Spearman´s Rangkorrelationskoeffizient
-      spearman_result <- cor.test(df[[variable]], df$qualität, method="spearman")      
+    } else if (input$options == "qualität") {                                                           #Test 2 (bei Auswahl der Qualität): Spearman´s Rangkorrelationskoeffizient
+      suppressWarnings({
+        spearman_result <- cor.test(df[[variable]], df$qualität, method = "spearman")                   #Warnmeldung ("Kann exakten p-Wert bei Bindungen nicht berechnen") unterdrücken
+      })                    
       spearman_koeffizient <- spearman_result$estimate
       staerke <- ifelse(abs(spearman_koeffizient) >= 0.5, "stark",                                       #Festlegen der Wertebereiche für die Interpretation der Stärke und der Richtung
                         ifelse(abs(spearman_koeffizient) >= 0.2, "mittleren", "schwach"))
