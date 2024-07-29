@@ -1,107 +1,152 @@
-#install.packages("shiny")
-#install.packages("ggplot2")
-#install.packages("shinyWidgets")
-#install.packages("rstudioapi")
+# Installationskommentare entfernen, wenn nicht notwendig
+# #install.packages("shiny")
+# #install.packages("ggplot2")
+# #install.packages("shinyWidgets")
+# #install.packages("rstudioapi")
+# #install.packages("DT")
+# #install.packages("ggcorrplot")
 
-#Workspace leeren
+# Workspace leeren
 rm(list = ls())
 gc()
 
-#Bibliotheken laden
+# Bibliotheken laden
 library(shiny)
 library(shinyWidgets)
 library(ggplot2)
 library(rstudioapi)
+library(DT) # Für die tabellarische Darstellung der Daten
+library(ggcorrplot)
 
-#Den Pfad auf das aktuelle Verzeichnis des R-Skrits setzen
+# Den Pfad auf das aktuelle Verzeichnis des R-Skripts setzen
 setwd(dirname(getActiveDocumentContext()$path))
 
 # Den bereinigten Datensatz einlesen
-df <- read.csv("winequality_cleaned.csv")
+df <- read.csv("winequality_cleaned.csv", stringsAsFactors = FALSE)
 
-# Die Spaltennamen umbenennen und dem Vektor "spalten" zuordnen 
+# Die Spalten "typ" und "qualität" in Faktoren umwandeln
+df$typ <- factor(df$typ, levels = c(0, 1), labels = c("Rotwein", "Weißwein"))
+df$qualität <- as.factor(df$qualität)
+
+# Die Spaltennamen umbenennen und dem Vektor "spalten" zuordnen
 spalten <- c(
   "fixierte.säure" = "Fixierte Säure",
   "flüchtige.säure" = "Flüchtige Säure",
   "zitronensäure" = "Zitronensäure",
   "restzucker" = "Restzucker",
-  "chloride" = "Chloride",
+  "chloride" = "Chlorid",
   "freies.schwefeldioxid" = "Freies Schwefeldioxid",
   "gesamtschwefeldioxid" = "Gesamtschwefeldioxid",
   "dichte" = "Dichte",
   "pHWert" = "pH-Wert",
-  "sulfate" = "Sulfate",
+  "sulfate" = "Sulfat",
   "alkoholgehalt" = "Alkoholgehalt"
 )
 
+# Prüfen, ob alle Spaltennamen im DataFrame im "spalten"-Vektor vorhanden sind, und ggf. hinzufügen
+alle_spalten <- names(df)
+fehlende_spalten <- setdiff(alle_spalten, names(spalten))
+
+# Fehlende Spalten mit ihren ursprünglichen Namen hinzufügen
+for (spalte in fehlende_spalten) {
+  spalten[spalte] <- spalte
+}
+
+# Spalteneinheiten für die Anzeige im Histogramm
+einheiten <- c(
+  "fixierte.säure" = "(g/dm³)",
+  "flüchtige.säure" = "(g/dm³)",
+  "zitronensäure" = "(g/dm³)",
+  "restzucker" = "(g/dm³)",
+  "chloride" = "(g/dm³)",
+  "freies.schwefeldioxid" = "(mg/dm³)",
+  "gesamtschwefeldioxid" = "(mg/dm³)",
+  "dichte" = "(g/cm³)",
+  "pHWert" = "",
+  "sulfate" = "(g/dm³)",
+  "alkoholgehalt" = "(%)"
+)
+
 # User-Interface der Shiny-App erstellen
-ui <- fluidPage(                                          #Hautcontainer-Layout (für versch. Bildschirmgrößen) 
-  titlePanel("Shiny Dashboard: Weinqualität"),            #Dashboard Titel
-  sidebarLayout(                                          #Seitenleiste (über alle Tabs) & Hauptbereich
-    sidebarPanel(                                         #Benutzersteuerung & Eingabeelemente
-      tags$div(style = "margin-top: 20px;"),              #Abstände festlegen
-      selectInput("variable", "Kontinuierliche Variable auswählen:", choices = setNames(names(spalten), spalten)),          #Dropdown-Menü für kont. Variablen
+ui <- fluidPage(
+  titlePanel("Shiny Dashboard: Weinqualität"),
+  sidebarLayout(
+    sidebarPanel(
+      tags$div(style = "margin-top: 20px;"),
+      selectInput("variable", "Kontinuierliche Variable auswählen:", choices = setNames(names(spalten), spalten)),
+      selectInput("variable1", "Variable 1 für Scatterplot:", choices = setNames(names(spalten), spalten)),
+      selectInput("variable2", "Variable 2 für Scatterplot:", choices = setNames(names(spalten), spalten)),
       verbatimTextOutput("statValues"),
       tags$div(style = "margin-top: 50px;"),
-      radioButtons("options", "Klasse auswählen:",        #Auswahlmöglichkeiten der Klassen
+      radioButtons("options", "Klasse auswählen:",
                    choices = list(
-                     "Qualität" = "qualität", 
+                     "Qualität" = "qualität",
                      "Weintyp" = "typ",
                      "Qualität und Weintyp" = "qualität_typ"
                    ),
-                   selected = "qualität"),               #Defaultauswahl Qualität
+                   selected = "qualität"),
       tags$div(style = "margin-top: 50px;"),
-      selectInput("alpha", "Signifikanzniveau auswählen:", choices = c(0.1, 0.05, 0.01, 0.005, 0.001), selected = 0.05),    #Dropdown-Menü zur Auswahl Signifikanzniveau
-      
+      selectInput("alpha", "Signifikanzniveau auswählen:", choices = c(0.1, 0.05, 0.01, 0.005, 0.001), selected = 0.05)
     ),
-    mainPanel(                                                           #Hauptbereich definieren (Anzeige der Ergebnisse: Tests & Plot)
-      tabsetPanel(                                                       #Registerkarten/Tabs zur Navigation erstellen
-        id = "results",                                                  #Dem Panel eine ID zuweisen für den Server-Code
-        tabPanel("Daten explorieren",                                   #Registerkartenpanel Datenexploration  
-                  fluidRow(                                              #erstellt Zeile  
-                    column(12,                                           #Spalte für Histogramm und Data Table über gesamte Seite 
-                           plotOutput("histPlot"),                       #Plot des Histograms 
-                           tags$div(style = "margin-top: 50px;"),        #Erhöhter Abstand vor dem Plot
-                           dataTableOutput("dataTable")                  #Anzeige der Daten in Tabellenformat 
-                    ),
-                    column(12, 
-                           dataTableOutput('dttbl')
-                           )
-                  )
+    mainPanel(
+      tabsetPanel(
+        id = "results",
+        tabPanel("Histogramm",
+                 fluidRow(
+                   column(12,
+                          plotOutput("histPlot"),
+                          tags$div(style = "margin-top: 50px;"),
+                          dataTableOutput("dataTable")
+                   )
+                 )
         ),
-        tabPanel("erweiterte Datenanalyse",                              #Registerkartenpanel Datenanalyse
-                 fluidRow(                                               #erstellt Zeile
-                   column(12,                                            #Spalte für Test-Output (über gesamte Breite) als Text mit dynamischem UI Inhalt
+        tabPanel("Scatterplot",
+                 fluidRow(
+                   column(12,
+                          plotOutput("scatterPlot")
+                   )
+                 )
+        ),
+        tabPanel("Korrelationsmatrix",
+                 fluidRow(
+                   column(12,
+                          plotOutput("correlationMatrix")
+                   )
+                 )
+        ),
+        tabPanel("Erweiterte Datenanalyse",
+                 fluidRow(
+                   column(12,
                           uiOutput("testHeader")),
                    verbatimTextOutput("testOutput")
                  ),
-                 column(12,                                              #Spalte für Violin-Plot (über gesamte Breite) mit dynamischem UI Inhalt
-                        tags$div(style = "margin-top: 50px;"),           #Erhöhter Abstand vor dem Plot
+                 column(12,
+                        tags$div(style = "margin-top: 50px;"),
                         plotOutput("violinPlot", height = "400px")
-                 ),
+                 )
         )
-      ),
+      )
     )
   )
 )
-server <- function(input, output) {                                   #Server-Funktion (enthält Serverlogik)
-  output$violinPlot <- renderPlot({                                   #Violin-Plot als Ausgabeelement definieren
+
+server <- function(input, output) {
+  output$violinPlot <- renderPlot({
     data <- df
-    plot_title <- paste("Violinplot von", spalten[input$variable])    #Titel, basierend auf ausgwählte Variable
+    plot_title <- paste("Violinplot von", spalten[input$variable])
     
-    # 3 verschiedene Violin-Plots in Abhängigkeit der ausgewählten Klasse
-    if (input$options == "qualität_typ") {                            #Plot 1: Auswahl Qualität und Weintyp
+    if (input$options == "qualität_typ") {
       ggplot(data, aes(x = as.factor(qualität), y = .data[[input$variable]], fill = typ)) +
         geom_violin(trim = FALSE, position = position_dodge(width = 0.5), color = "black", alpha = 0.7) +
         geom_boxplot(width = 0.1, position = position_dodge(width = 0.5), color = "black", alpha = 0.5) +
-        scale_fill_manual(values = c("Rotwein" = "#E74C3C", "Weißwein" = "#F5CBA7")) +         # Farben für Rot- und Weißwein definieren
-        labs(                                                         #Titel und Beschriftungen festlegen
-          title = paste(plot_title, "nach Weintyp und Qualität"), 
-          x = "Qualität", 
+        scale_fill_manual(values = c("Rotwein" = "#E74C3C", "Weißwein" = "#F5CBA7")) +
+        labs(
+          title = paste(plot_title, "nach Weintyp und Qualität"),
+          x = "Qualität",
           y = spalten[input$variable],
           fill = "Weintyp"
         ) +
-        theme_minimal() +                                             #Schriftgrößen und Legendenposition anpassen
+        theme_minimal() +
         theme(
           plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
           axis.title.x = element_text(size = 16),
@@ -111,14 +156,14 @@ server <- function(input, output) {                                   #Server-Fu
           legend.position = "right"
         )
       
-    } else if (input$options == "qualität") {                         #Plot 2: Bei Auswahl "Qualität"
+    } else if (input$options == "qualität") {
       ggplot(data, aes(x = as.factor(qualität), y = .data[[input$variable]], fill = as.factor(qualität))) +
         geom_violin(trim = FALSE, color = "black", alpha = 0.7) +
         geom_boxplot(width = 0.1, position = position_dodge(width = 0.9), color = "black", alpha = 0.5) +
         scale_fill_grey(start = 0.5, end = 1) +
         labs(
-          title = paste(plot_title, "nach Qualität"), 
-          x = "Qualität", 
+          title = paste(plot_title, "nach Qualität"),
+          x = "Qualität",
           y = spalten[input$variable]
         ) +
         theme_minimal() +
@@ -131,14 +176,14 @@ server <- function(input, output) {                                   #Server-Fu
           legend.position = "none"
         )
       
-    } else if (input$options == "typ") {                               #Plot 3: Bei Auswahl Weintyp
+    } else if (input$options == "typ") {
       ggplot(data, aes(x = typ, y = .data[[input$variable]], fill = typ)) +
         geom_violin(trim = FALSE, color = "black", alpha = 0.7) +
         geom_boxplot(width = 0.1, position = position_dodge(width = 0.9), color = "black", alpha = 0.5) +
         scale_fill_manual(values = c("Rotwein" = "#E74C3C", "Weißwein" = "#F5CBA7")) +
         labs(
-          title = paste(plot_title, "nach Weintyp"), 
-          x = "Weintyp", 
+          title = paste(plot_title, "nach Weintyp"),
+          x = "Weintyp",
           y = spalten[input$variable],
           fill = "Weintyp"
         ) +
@@ -154,17 +199,23 @@ server <- function(input, output) {                                   #Server-Fu
     }
   })
   
-  output$statValues <- renderPrint({         #Berechnung und Anzeige (in der Sidebar) statistischer Werte
-    variable <- input$variable               #ruft die vom Benutzer ausgwählte Variable auf
+  # Erweiterte Statistiken berechnen und anzeigen
+  output$statValues <- renderPrint({
+    variable <- input$variable
     data <- df[[variable]]
-    cat("Mittelwert:", mean(data), "\n")          #Ausgabe Mittelwert
-    cat("Median:", median(data), "\n")            #Ausgabe Median
-    cat("Minimum:", min(data), "\n")              #Ausgabe Minimum
-    cat("Maximum:", max(data), "\n")              #Ausgabe Maximum
-    cat("Standardabweichung:", sd(data), "\n")    #Ausgabe Standardabweichung
+    cat("Mittelwert:", mean(data), "\n")
+    cat("Median:", median(data), "\n")
+    cat("Minimum:", min(data), "\n")
+    cat("Maximum:", max(data), "\n")
+    cat("Standardabweichung:", sd(data), "\n")
+    cat("1. Quartil:", quantile(data, 0.25), "\n")
+    cat("3. Quartil:", quantile(data, 0.75), "\n")
+    cat("Interquartilsabstand (IQR):", IQR(data), "\n")
+    cat("Schiefe:", e1071::skewness(data), "\n")
+    cat("Kurtosis:", e1071::kurtosis(data), "\n")
   })
   
-  output$testHeader <- renderPrint({              #Überschrift für entsprechenden Test (auf Basis der Benutzerauswahl)
+  output$testHeader <- renderUI({
     variable <- input$variable
     
     if (input$options == "typ") {
@@ -174,16 +225,15 @@ server <- function(input, output) {                                   #Server-Fu
     }
   })
   
-  output$testOutput <- renderPrint({              #Ergebnisse des entsprechenden Tests (auf Basis der Benutzerauswahl)
+  output$testOutput <- renderPrint({
     variable <- input$variable
-    alpha <- as.numeric(input$alpha)              #Konvertiert ausgewähltes Signifikanzniveau in numerische Variable
+    alpha <- as.numeric(input$alpha)
     
-  #Durchführung der Tests (in Abhängigkeit der ausgwählten Klasse)  
     if (input$options == "typ") {
-      wilcox_result <- wilcox.test(df[[variable]] ~ df$typ)                                      #Test 1 (bei Auswahl Weintyp): Mann-Whitney-U-Test mit ausgewählter Variable
-      p_wert_w <- wilcox_result$p.value                                                          #P-Wert übergeben
-      med_rot <- median(df[df$typ =="Rotwein", variable])                                        #Statistische Werte und Stichprobengröße für die Effektstärke berechnen
-      med_weiß <- median(df[df$typ =="Weißwein", variable])
+      wilcox_result <- wilcox.test(df[[variable]] ~ df$typ)
+      p_wert_w <- wilcox_result$p.value
+      med_rot <- median(df[df$typ == "Rotwein", variable])
+      med_weiß <- median(df[df$typ == "Weißwein", variable])
       mean_rot <- mean(df[df$typ == "Rotwein", variable])
       mean_weiß <- mean(df[df$typ == "Weißwein", variable])
       sd_rot <- sd(df[df$typ == "Rotwein", variable])
@@ -191,51 +241,53 @@ server <- function(input, output) {                                   #Server-Fu
       n_rot <- sum(df$typ == "Rotwein")
       n_weiß <- sum(df$typ == "Weißwein")
       SDp <- sqrt(((n_rot - 1) * sd_rot^2 + (n_weiß - 1) * sd_weiß^2) / (n_rot + n_weiß - 2))
-      cohen_d <- (mean_rot - mean_weiß) / SDp                                                   #Cohen´s d berechnen und Beurteilung der Effektstärke festlegen
-      cohen_d_interpretation <- ifelse(cohen_d >= 0.5, "stark", 
-                                       ifelse(cohen_d >= 0.3, "mittel", 
+      cohen_d <- (mean_rot - mean_weiß) / SDp
+      cohen_d_interpretation <- ifelse(cohen_d >= 0.5, "stark",
+                                       ifelse(cohen_d >= 0.3, "mittel",
                                               ifelse(cohen_d >= 0.1, "schwach", "sehr schwach")))
-      cat("W-Statistik:", wilcox_result$statistic, "\n")                                        #Ausgabe der Ergebnisse in Abhängigkeit der Signifikanz 
+      cat("W-Statistik:", wilcox_result$statistic, "\n")
       cat("p-Wert:", p_wert_w, "\n")
-      cat("Median Rotwein:",med_rot, "| Median Weißwein:",med_weiß,"\n")
-      cat("Effektstärke (Cohen´s d):", cohen_d, "\n")
+      cat("Median Rotwein:", med_rot, "| Median Weißwein:", med_weiß, "\n")
+      cat("Effektstärke (Cohen’s d):", cohen_d, "\n")
       
       if (p_wert_w < alpha) {
-        cat("Ergebnis: Es gibt einen statistisch signifikanten Unterschied (bei einem alpha =", alpha, ")\nzwischen der Variable", spalten[variable], "in Abhängigkeit des Weintyps. Nach Cohen (1992) ist dieser Unterschied" ,cohen_d_interpretation,".\n")
+        cat("Ergebnis: Es gibt einen statistisch signifikanten Unterschied (bei einem alpha =", alpha, ")\nzwischen der Variable", spalten[variable], "in Abhängigkeit des Weintyps. Nach Cohen (1992) ist dieser Unterschied", cohen_d_interpretation,".\n")
       } else {
-        cat("Ergebnis: Der Unterschied zwischen der Variable", spalten[variable], "in Abhängigkeit des Weintyps ist nicht signifikant (bei einem alpha =", alpha, ").Nach Cohen (1992) ist dieser Unterschied" ,cohen_d_interpretation,".\n")
+        cat("Ergebnis: Der Unterschied zwischen der Variable", spalten[variable], "in Abhängigkeit des Weintyps ist nicht signifikant (bei einem alpha =", alpha, "). Nach Cohen (1992) ist dieser Unterschied", cohen_d_interpretation,".\n")
       }
       
-      
-    } else if (input$options == "qualität") {                                                           #Test 2 (bei Auswahl der Qualität): Spearman´s Rangkorrelationskoeffizient
+    } else if (input$options == "qualität") {
       suppressWarnings({
-        spearman_result <- cor.test(df[[variable]], df$qualität, method = "spearman")                   #Warnmeldung ("Kann exakten p-Wert bei Bindungen nicht berechnen") unterdrücken
-      })                    
+        spearman_result <- cor.test(as.numeric(df[[variable]]), as.numeric(df$qualität), method = "spearman")
+      })
       spearman_koeffizient <- spearman_result$estimate
-      staerke <- ifelse(abs(spearman_koeffizient) >= 0.5, "stark",                                       #Festlegen der Wertebereiche für die Interpretation der Stärke und der Richtung
+      staerke <- ifelse(abs(spearman_koeffizient) >= 0.5, "stark",
                         ifelse(abs(spearman_koeffizient) >= 0.2, "mittleren", "schwach"))
       richtung <- ifelse(spearman_koeffizient > 0, "positiven", "negativen")
       cat("\u03C1:", spearman_koeffizient, "\n")
       cat("p-Wert:", spearman_result$p.value, "\n")
       
       if (spearman_result$p.value < alpha) {
-        cat("Ergebnis: Es gibt einen", staerke, richtung,"Zusammenhang zwischen Qualität und", spalten[variable], ".Der Zusammenhang ist signifikant (bei einem alpha =", alpha,").\n")
+        cat("Ergebnis: Es gibt einen", staerke, richtung, "Zusammenhang zwischen Qualität und", spalten[variable], ". Der Zusammenhang ist signifikant (bei einem alpha =", alpha, ").\n")
       } else {
-        cat("Ergebnis: Es gibt einen", staerke, richtung,"Zusammenhang zwischen Qualität und", spalten[variable],".Der Zusammenhang ist nicht signifikant (bei einem alpha =", alpha,").\n")
+        cat("Ergebnis: Es gibt einen", staerke, richtung, "Zusammenhang zwischen Qualität und", spalten[variable], ". Der Zusammenhang ist nicht signifikant (bei einem alpha =", alpha, ").\n")
       }
     } else {
-      cat("Bitte wählen Sie Qualität oder Weintyp um die statistischen Tests durchzuführen.")            #Gibt eine Nachricht aus, wenn weder "typ" noch "qualität" als Option ausgewählt ist.
+      cat("Bitte wählen Sie Qualität oder Weintyp, um die statistischen Tests durchzuführen.")
     }
   })
-  output$histPlot <- renderPlot({                                                                        #
+  
+  output$histPlot <- renderPlot({
     variable <- input$variable
     data <- df[[variable]]
+    
     ggplot(df, aes(x = .data[[variable]])) +
-      geom_histogram(binwidth = 1, fill = "blue", color = "black", alpha = 0.7) +
+      geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "blue", color = "black", alpha = 0.7) +
+      stat_function(fun = dnorm, args = list(mean = mean(data), sd = sd(data)), color = "red", size = 1) +
       labs(
-        title = paste("Histogramm von", spalten[variable]),
-        x = spalten[variable],
-        y = "Häufigkeit"
+        title = paste("Histogramm von", spalten[variable], einheiten[variable]),
+        x = paste(spalten[variable], einheiten[variable]),
+        y = "Dichte"
       ) +
       theme_minimal() +
       theme(
@@ -247,8 +299,37 @@ server <- function(input, output) {                                   #Server-Fu
       )
   })
   
-  output$dttbl<- renderDataTable(df, options = list(pageLenght=5))
+  output$dataTable <- renderDataTable({
+    datatable(df, options = list(pageLength = 10), colnames = unname(spalten))
+  })
+  
+  output$scatterPlot <- renderPlot({
+    variable1 <- input$variable1
+    variable2 <- input$variable2
+    ggplot(df, aes(x = .data[[variable1]], y = .data[[variable2]])) +
+      geom_point() +
+      labs(
+        title = paste("Scatterplot von", spalten[variable1], "und", spalten[variable2]),
+        x = spalten[variable1],
+        y = spalten[variable2]
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14)
+      )
+  })
+  
+  output$correlationMatrix <- renderPlot({
+    corr_df <- df[, !(names(df) %in% c("typ", "qualität"))]
+    colnames(corr_df) <- unname(spalten[names(corr_df)])
+    corr <- round(cor(corr_df), 2)
+    ggcorrplot::ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE)
+  })
+  
 }
-
-#App starten
+# App starten
 shinyApp(ui = ui, server = server)
