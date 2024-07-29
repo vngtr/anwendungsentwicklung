@@ -1,10 +1,10 @@
 # Installationskommentare entfernen, wenn nicht notwendig
-# #install.packages("shiny")
-# #install.packages("ggplot2")
-# #install.packages("shinyWidgets")
-# #install.packages("rstudioapi")
-# #install.packages("DT")
-# #install.packages("ggcorrplot")
+#install.packages("shiny")
+#install.packages("ggplot2")
+#install.packages("shinyWidgets")
+#install.packages("rstudioapi")
+#install.packages("DT")
+#install.packages("ggcorrplot")
 
 # Workspace leeren
 rm(list = ls())
