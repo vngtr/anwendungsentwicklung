@@ -41,16 +41,16 @@ spalten <- c(
 
 # Spalteneinheiten für die Anzeige im Histogramm
 einheiten <- c(
-  "fixierte.säure" = "(g/dm³)",
-  "flüchtige.säure" = "(g/dm³)",
-  "zitronensäure" = "(g/dm³)",
-  "restzucker" = "(g/dm³)",
-  "chloride" = "(g/dm³)",
-  "freies.schwefeldioxid" = "(mg/dm³)",
-  "gesamtschwefeldioxid" = "(mg/dm³)",
+  "fixierte.säure" = "(g/l)",
+  "flüchtige.säure" = "(g/l)",
+  "zitronensäure" = "(g/l)",
+  "restzucker" = "(g/l)",
+  "chloride" = "(g/l)",
+  "freies.schwefeldioxid" = "(mg/l)",
+  "gesamtschwefeldioxid" = "(mg/l)",
   "dichte" = "(g/cm³)",
   "pHWert" = "",
-  "sulfate" = "(g/dm³)",
+  "sulfate" = "(g/l)",
   "alkoholgehalt" = "(%)"
 )
 
@@ -60,9 +60,12 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       tags$div(style = "margin-top: 20px;"),
+      # Dropdown-Menü zur Auswahl der kontinuierlichen Variable
       selectInput("variable", "Kontinuierliche Variable auswählen:", choices = setNames(names(spalten), spalten)),
+      # Ausgabe der statistischen Werte der ausgewählten Variable
       verbatimTextOutput("statValues"),
       tags$div(style = "margin-top: 50px;"),
+      # Radiobuttons zur Auswahl der Klassifizierungsoptionen
       radioButtons("options", "Klasse auswählen:",
                    choices = list(
                      "Qualität" = "qualität",
@@ -71,28 +74,35 @@ ui <- fluidPage(
                    ),
                    selected = "qualität"),
       tags$div(style = "margin-top: 50px;"),
+      # Dropdown-Menü zur Auswahl des Signifikanzniveaus
       selectInput("alpha", "Signifikanzniveau auswählen:", choices = c(0.1, 0.05, 0.01, 0.005, 0.001), selected = 0.05)
     ),
     mainPanel(
       tabsetPanel(
         id = "results",
-        tabPanel("Histogramm",
+        tabPanel("Datenexploration",
                  fluidRow(
                    column(6,
+                          # Histogramm der ausgewählten Variable
                           plotOutput("histPlot")
                    ),
                    column(6,
+                          # QQ-Plot der ausgewählten Variable
                           plotOutput("qqPlot")
                    )
                  ),
                  fluidRow(
                    column(12,
+                          # Radiobuttons zur Auswahl des Weintyps
                           radioButtons("wineType", "Weintyp auswählen:",
                                        choices = list("Alle" = "all", "Rotwein" = "Rotwein", "Weißwein" = "Weißwein"),
                                        selected = "all"),
+                          # Dropdown-Menü zur Auswahl der Vergleichsvariablen
                           selectInput("Vergleichsvariable", "Zweite Variable auswählen:", choices = setNames(names(spalten), spalten)),
+                          # Buttons zur Anzeige des Scatterplots oder zur Berechnung der Korrelation
                           actionButton("scatterButton", "Scatter"),
                           actionButton("correlationButton", "Korrelation"),
+                          # Dynamische Ausgabe des Scatterplots oder der Korrelationsergebnisse
                           plotOutput("dynamicPlot"),
                           verbatimTextOutput("correlationResult")
                    )
@@ -101,11 +111,14 @@ ui <- fluidPage(
         tabPanel("Erweiterte Datenanalyse",
                  fluidRow(
                    column(12,
+                          # Überschrift für den Test
                           uiOutput("testHeader")),
+                   # Ausgabe der Testergebnisse
                    verbatimTextOutput("testOutput")
                  ),
                  column(12,
                         tags$div(style = "margin-top: 50px;"),
+                        # Violin-Plot der ausgewählten Variable
                         plotOutput("violinPlot", height = "400px")
                  )
         )
@@ -115,6 +128,7 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  # Reaktive Funktion zur Filterung der Daten basierend auf der Weintyp-Auswahl
   filteredData <- reactive({
     if (input$wineType == "all") {
       df
@@ -122,7 +136,7 @@ server <- function(input, output, session) {
       subset(df, typ == input$wineType)
     }
   })
-  
+  # Rendern des Violin-Plots basierend auf den gefilterten Daten und der Klassifizierungsoption
   output$violinPlot <- renderPlot({
     data <- filteredData()
     plot_title <- paste("Violinplot von", spalten[input$variable])
@@ -170,6 +184,7 @@ server <- function(input, output, session) {
     }
   })
   
+  # Ausgabe der statistischen Werte der ausgewählten Variable
   output$statValues <- renderPrint({
     data <- filteredData()
     variable <- input$variable
@@ -185,6 +200,7 @@ server <- function(input, output, session) {
     cat("Kurtosis:", e1071::kurtosis(data[[variable]]), "\n")
   })
   
+  # Rendern der Testüberschrift basierend auf der Klassifizierungsoption
   output$testHeader <- renderUI({
     variable <- input$variable
     
@@ -195,6 +211,7 @@ server <- function(input, output, session) {
     }
   })
   
+  # Rendern der Testergebnisse basierend auf den gefilterten Daten und der Klassifizierungsoption
   output$testOutput <- renderPrint({
     data <- filteredData()
     variable <- input$variable
@@ -248,6 +265,7 @@ server <- function(input, output, session) {
     }
   })
   
+  # Rendern des Histogramms basierend auf den gefilterten Daten und der Weintyp-Auswahl
   output$histPlot <- renderPlot({
     data <- filteredData()
     variable <- input$variable
@@ -264,27 +282,14 @@ server <- function(input, output, session) {
       theme_minimal()
   })
   
+  # Rendern der Tabelle mit den gefilterten Daten
   output$dataTable <- renderDataTable({
     datatable(filteredData(), options = list(pageLength = 10), colnames = unname(spalten))
   })
   
-  output$scatterPlot <- renderPlot({
-    data <- filteredData()
-    req(input$Vergleichsvariable)
-    variable1 <- input$variable
-    variable2 <- input$Vergleichsvariable
-    point_color <- if (input$wineType == "Rotwein") "red" else if (input$wineType == "Weißwein") "#F5CBA7" else "black"
-    
-    ggplot(data, aes(x = .data[[variable1]], y = .data[[variable2]])) +
-      geom_point(color = point_color) +
-      labs(
-        title = paste("Scatterplot von", spalten[variable1], "und", spalten[variable2]),
-        x = spalten[variable1],
-        y = spalten[variable2]
-      ) +
-      theme_minimal()
-  })
+
   
+  # Rendern des dynamischen Scatterplots basierend auf den gefilterten Daten und der Weintyp-Auswahl
   observeEvent(input$scatterButton, {
     output$dynamicPlot <- renderPlot({
       data <- filteredData()
@@ -302,9 +307,10 @@ server <- function(input, output, session) {
         theme_minimal()
     })
     
-    output$correlationResult <- renderPrint(NULL) # Clear correlation result when scatter plot is shown
+    output$correlationResult <- renderPrint(NULL) # Korrelation nicht anzeigen wenn Scatterplot angezeigt wird.
   })
   
+  # Berechnung und Ausgabe der Korrelation zwischen zwei Variablen basierend auf den gefilterten Daten
   observeEvent(input$correlationButton, {
     output$correlationResult <- renderPrint({
       data <- filteredData()
@@ -314,9 +320,10 @@ server <- function(input, output, session) {
       cat("Korrelation zwischen", spalten[variable1], "und", spalten[variable2], ":", round(corr, 2))
     })
     
-    output$dynamicPlot <- renderPlot(NULL) # Clear scatter plot when correlation result is shown
+    output$dynamicPlot <- renderPlot(NULL) # Scatterplot nicht anzeigen, wenn Korrelation angezeigt wird. 
   })
   
+  # Rendern des QQ-Plots basierend auf den gefilterten Daten und der Weintyp-Auswahl
   output$qqPlot <- renderPlot({
     data <- filteredData()
     variable <- input$variable
@@ -333,6 +340,7 @@ server <- function(input, output, session) {
       theme_minimal()
   })
   
+  # Setze die Weintyp-Auswahl auf "Alle" zurück, wenn der Tab "Erweiterte Datenanalyse" ausgewählt wird
   observeEvent(input$results, {
     if (input$results == "Erweiterte Datenanalyse") {
       updateRadioButtons(session, "wineType", selected = "all")
