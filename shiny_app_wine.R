@@ -1,10 +1,10 @@
 # Installationskommentare entfernen, wenn nicht notwendig
-#install.packages("shiny")
-#install.packages("ggplot2")
-#install.packages("shinyWidgets")
-#install.packages("rstudioapi")
-#install.packages("DT")
-#install.packages("ggcorrplot")
+# #install.packages("shiny")
+# #install.packages("ggplot2")
+# #install.packages("shinyWidgets")
+# #install.packages("rstudioapi")
+# #install.packages("DT")
+# #install.packages("ggcorrplot")
 
 # Workspace leeren
 rm(list = ls())
@@ -22,11 +22,7 @@ library(ggcorrplot)
 setwd(dirname(getActiveDocumentContext()$path))
 
 # Den bereinigten Datensatz einlesen
-df <- read.csv("winequality_cleaned.csv", stringsAsFactors = FALSE)
-
-# Die Spalten "typ" und "qualität" in Faktoren umwandeln
-df$typ <- factor(df$typ, levels = c(0, 1), labels = c("Rotwein", "Weißwein"))
-df$qualität <- as.factor(df$qualität)
+df <- read.csv("winequality_cleaned.csv")
 
 # Die Spaltennamen umbenennen und dem Vektor "spalten" zuordnen
 spalten <- c(
@@ -42,15 +38,6 @@ spalten <- c(
   "sulfate" = "Sulfat",
   "alkoholgehalt" = "Alkoholgehalt"
 )
-
-# Prüfen, ob alle Spaltennamen im DataFrame im "spalten"-Vektor vorhanden sind, und ggf. hinzufügen
-alle_spalten <- names(df)
-fehlende_spalten <- setdiff(alle_spalten, names(spalten))
-
-# Fehlende Spalten mit ihren ursprünglichen Namen hinzufügen
-for (spalte in fehlende_spalten) {
-  spalten[spalte] <- spalte
-}
 
 # Spalteneinheiten für die Anzeige im Histogramm
 einheiten <- c(
@@ -96,14 +83,15 @@ ui <- fluidPage(
                    column(12,
                           plotOutput("histPlot"),
                           tags$div(style = "margin-top: 50px;"),
-                          dataTableOutput("dataTable")
+                          plotOutput("qqPlot")
                    )
                  )
         ),
         tabPanel("Scatterplot",
                  fluidRow(
                    column(12,
-                          plotOutput("scatterPlot")
+                          plotOutput("scatterPlot"),
+                          dataTableOutput("dataTable")
                    )
                  )
         ),
@@ -131,22 +119,23 @@ ui <- fluidPage(
 )
 
 server <- function(input, output) {
-  output$violinPlot <- renderPlot({
+  output$violinPlot <- renderPlot({                                   #Violin-Plot als Ausgabeelement definieren
     data <- df
-    plot_title <- paste("Violinplot von", spalten[input$variable])
+    plot_title <- paste("Violinplot von", spalten[input$variable])    #Titel, basierend auf ausgwählte Variable
     
-    if (input$options == "qualität_typ") {
+    # 3 verschiedene Violin-Plots in Abhängigkeit der ausgewählten Klasse
+    if (input$options == "qualität_typ") {                            #Plot 1: Auswahl Qualität und Weintyp
       ggplot(data, aes(x = as.factor(qualität), y = .data[[input$variable]], fill = typ)) +
         geom_violin(trim = FALSE, position = position_dodge(width = 0.5), color = "black", alpha = 0.7) +
         geom_boxplot(width = 0.1, position = position_dodge(width = 0.5), color = "black", alpha = 0.5) +
-        scale_fill_manual(values = c("Rotwein" = "#E74C3C", "Weißwein" = "#F5CBA7")) +
-        labs(
-          title = paste(plot_title, "nach Weintyp und Qualität"),
-          x = "Qualität",
+        scale_fill_manual(values = c("Rotwein" = "#E74C3C", "Weißwein" = "#F5CBA7")) +         # Farben für Rot- und Weißwein definieren
+        labs(                                                         #Titel und Beschriftungen festlegen
+          title = paste(plot_title, "nach Weintyp und Qualität"), 
+          x = "Qualität", 
           y = spalten[input$variable],
           fill = "Weintyp"
         ) +
-        theme_minimal() +
+        theme_minimal() +                                             #Schriftgrößen und Legendenposition anpassen
         theme(
           plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
           axis.title.x = element_text(size = 16),
@@ -156,14 +145,14 @@ server <- function(input, output) {
           legend.position = "right"
         )
       
-    } else if (input$options == "qualität") {
+    } else if (input$options == "qualität") {                         #Plot 2: Bei Auswahl "Qualität"
       ggplot(data, aes(x = as.factor(qualität), y = .data[[input$variable]], fill = as.factor(qualität))) +
         geom_violin(trim = FALSE, color = "black", alpha = 0.7) +
         geom_boxplot(width = 0.1, position = position_dodge(width = 0.9), color = "black", alpha = 0.5) +
         scale_fill_grey(start = 0.5, end = 1) +
         labs(
-          title = paste(plot_title, "nach Qualität"),
-          x = "Qualität",
+          title = paste(plot_title, "nach Qualität"), 
+          x = "Qualität", 
           y = spalten[input$variable]
         ) +
         theme_minimal() +
@@ -176,14 +165,14 @@ server <- function(input, output) {
           legend.position = "none"
         )
       
-    } else if (input$options == "typ") {
+    } else if (input$options == "typ") {                               #Plot 3: Bei Auswahl Weintyp
       ggplot(data, aes(x = typ, y = .data[[input$variable]], fill = typ)) +
         geom_violin(trim = FALSE, color = "black", alpha = 0.7) +
         geom_boxplot(width = 0.1, position = position_dodge(width = 0.9), color = "black", alpha = 0.5) +
         scale_fill_manual(values = c("Rotwein" = "#E74C3C", "Weißwein" = "#F5CBA7")) +
         labs(
-          title = paste(plot_title, "nach Weintyp"),
-          x = "Weintyp",
+          title = paste(plot_title, "nach Weintyp"), 
+          x = "Weintyp", 
           y = spalten[input$variable],
           fill = "Weintyp"
         ) +
@@ -282,21 +271,14 @@ server <- function(input, output) {
     data <- df[[variable]]
     
     ggplot(df, aes(x = .data[[variable]])) +
-      geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "blue", color = "black", alpha = 0.7) +
-      stat_function(fun = dnorm, args = list(mean = mean(data), sd = sd(data)), color = "red", size = 1) +
+      geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "black", color = "black", alpha = 0.5) +
+      stat_function(fun = dnorm, args = list(mean = mean(data), sd = sd(data)), color = "red", linewidth = 1) +
       labs(
         title = paste("Histogramm von", spalten[variable], einheiten[variable]),
         x = paste(spalten[variable], einheiten[variable]),
         y = "Dichte"
       ) +
-      theme_minimal() +
-      theme(
-        plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
-        axis.title.x = element_text(size = 16),
-        axis.title.y = element_text(size = 16),
-        axis.text.x = element_text(size = 14),
-        axis.text.y = element_text(size = 14)
-      )
+      theme_minimal()
   })
   
   output$dataTable <- renderDataTable({
@@ -313,14 +295,7 @@ server <- function(input, output) {
         x = spalten[variable1],
         y = spalten[variable2]
       ) +
-      theme_minimal() +
-      theme(
-        plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
-        axis.title.x = element_text(size = 16),
-        axis.title.y = element_text(size = 16),
-        axis.text.x = element_text(size = 14),
-        axis.text.y = element_text(size = 14)
-      )
+      theme_minimal()
   })
   
   output$correlationMatrix <- renderPlot({
@@ -328,8 +303,22 @@ server <- function(input, output) {
     colnames(corr_df) <- unname(spalten[names(corr_df)])
     corr <- round(cor(corr_df), 2)
     ggcorrplot::ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE)
+    
   })
   
+  output$qqPlot <- renderPlot({
+    variable <- input$variable
+    data <- df[[variable]]
+    ggplot(data.frame(sample = data), aes(sample = sample)) +
+      stat_qq() +
+      stat_qq_line() +
+      labs(
+        title = paste("QQ-Plot von", spalten[variable]),
+        x = "Theoretische Quantile",
+        y = "Beobachtete Quantile"
+      ) +
+      theme_minimal()
+  })
 }
 # App starten
 shinyApp(ui = ui, server = server)
