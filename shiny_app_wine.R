@@ -61,8 +61,6 @@ ui <- fluidPage(
     sidebarPanel(
       tags$div(style = "margin-top: 20px;"),
       selectInput("variable", "Kontinuierliche Variable auswählen:", choices = setNames(names(spalten), spalten)),
-      selectInput("variable1", "Variable 1 für Scatterplot:", choices = setNames(names(spalten), spalten)),
-      selectInput("variable2", "Variable 2 für Scatterplot:", choices = setNames(names(spalten), spalten)),
       verbatimTextOutput("statValues"),
       tags$div(style = "margin-top: 50px;"),
       radioButtons("options", "Klasse auswählen:",
@@ -80,10 +78,18 @@ ui <- fluidPage(
         id = "results",
         tabPanel("Histogramm",
                  fluidRow(
-                   column(12,
-                          plotOutput("histPlot"),
-                          tags$div(style = "margin-top: 50px;"),
+                   column(6,
+                          plotOutput("histPlot")
+                   ),
+                   column(6,
                           plotOutput("qqPlot")
+                   )
+                 ),
+                 fluidRow(
+                   column(12,
+                          selectInput("Vergleichsvariable", "Zweite Variable auswählen:", choices = setNames(names(spalten), spalten)),
+                          actionButton("scatterButton", "Scatter"),
+                          actionButton("correlationButton", "Korrelation")
                    )
                  )
         ),
@@ -286,8 +292,9 @@ server <- function(input, output) {
   })
   
   output$scatterPlot <- renderPlot({
-    variable1 <- input$variable1
-    variable2 <- input$variable2
+    req(input$secondVariable)
+    variable1 <- input$variable
+    variable2 <- input$secondVariable
     ggplot(df, aes(x = .data[[variable1]], y = .data[[variable2]])) +
       geom_point() +
       labs(
@@ -298,12 +305,19 @@ server <- function(input, output) {
       theme_minimal()
   })
   
+  observeEvent(input$scatterButton, {
+    updateTabsetPanel(session, "results", selected = "Scatterplot")
+  })
+  
+  observeEvent(input$correlationButton, {
+    updateTabsetPanel(session, "results", selected = "Korrelationsmatrix")
+  })
+  
   output$correlationMatrix <- renderPlot({
     corr_df <- df[, !(names(df) %in% c("typ", "qualität"))]
     colnames(corr_df) <- unname(spalten[names(corr_df)])
     corr <- round(cor(corr_df), 2)
     ggcorrplot::ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE)
-    
   })
   
   output$qqPlot <- renderPlot({
