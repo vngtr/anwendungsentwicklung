@@ -49,7 +49,7 @@ ui <- fluidPage(                                          #Hautcontainer-Layout 
                      "Weintyp" = "typ",
                      "Qualität und Weintyp" = "qualität_typ"
                    ),
-                   selected = "qualität"),               #Defaultauswahl Qualität
+                   selected = "qualität"),                #Defaultauswahl Qualität
       tags$div(style = "margin-top: 50px;"),
       selectInput("alpha", "Signifikanzniveau auswählen:", choices = c(0.1, 0.05, 0.01, 0.005, 0.001), selected = 0.05),    #Dropdown-Menü zur Auswahl Signifikanzniveau
       
@@ -57,7 +57,7 @@ ui <- fluidPage(                                          #Hautcontainer-Layout 
     mainPanel(                                                           #Hauptbereich definieren (Anzeige der Ergebnisse: Tests & Plot)
       tabsetPanel(                                                       #Registerkarten/Tabs zur Navigation erstellen
         id = "results",                                                  #Dem Panel eine ID zuweisen für den Server-Code
-        tabPanel("Daten explorieren",                                   #Registerkartenpanel Datenexploration  
+        tabPanel("Daten explorieren",                                    #Registerkartenpanel Datenexploration  
                   fluidRow(                                              #erstellt Zeile  
                     column(12,                                           #Spalte für Histogramm und Data Table über gesamte Seite 
                            plotOutput("histPlot"),                       #Plot des Histograms 
