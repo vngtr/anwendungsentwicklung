@@ -100,7 +100,7 @@ ui <- fluidPage(
                           actionButton("scatterButton", "Scatterplot und Korrelation einblenden")
                           ),
                    column(12,
-                          # Dynamische Ausgabe des Scatterplots oder der Korrelationsergebnisse
+                          # Dynamische Ausgabe des Scatterplots und der Korrelationsergebnisse
                           verbatimTextOutput("correlationResult"),
                           plotOutput("ScatterPlot")
                           
@@ -160,7 +160,7 @@ server <- function(input, output, session) {
   output$statValues <- renderPrint({
     data <- filteredData()
     variable <- input$variable
-    cat("**<b>Verteilung und Streuung der Daten</b>**\n")
+    cat("Verteilung und Streuung der Daten\n")
     cat("Mittelwert:", mean(data[[variable]]), "\n")
     cat("Median:", median(data[[variable]]), "\n")
     cat("Minimum:", min(data[[variable]]), "\n")
@@ -279,7 +279,6 @@ server <- function(input, output, session) {
         ) +
         theme_minimal()
     })
-    })
     # Berechnung und Ausgabe der Korrelation zwischen zwei Variablen basierend auf den gefilterten Daten
     output$correlationResult <- renderPrint({
       data <- filteredData()
@@ -317,7 +316,7 @@ server <- function(input, output, session) {
       
       cat("Die Korrelation zwischen", spalten[variable1], "und", spalten[variable2], "ist:", round(corr, 2), ".", "Zwischen den Variablen gibt es", corr_meaning)
   })
-  
+  })
   
   # Rendern des QQ-Plots basierend auf den gefilterten Daten und der Weintyp-Auswahl
   output$qqPlot <- renderPlot({
