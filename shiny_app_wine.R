@@ -65,6 +65,10 @@ ui <- fluidPage(
       # Ausgabe der statistischen Werte der ausgewählten Variable
       verbatimTextOutput("statValues"),
       tags$div(style = "margin-top: 50px;"),
+      # Radiobuttons zur Auswahl des Weintyps
+      radioButtons("wineType", "Weintyp auswählen:",
+                   choices = list("Alle" = "all", "Rotwein" = "Rotwein", "Weißwein" = "Weißwein"),
+                   selected = "all"),
       # Radiobuttons zur Auswahl der Klassifizierungsoptionen
       radioButtons("options", "Klasse auswählen:",
                    choices = list(
@@ -93,14 +97,10 @@ ui <- fluidPage(
                  ),
                  fluidRow(
                    column(12,
-                          # Radiobuttons zur Auswahl des Weintyps
-                          radioButtons("wineType", "Weintyp auswählen:",
-                                       choices = list("Alle" = "all", "Rotwein" = "Rotwein", "Weißwein" = "Weißwein"),
-                                       selected = "all"),
                           # Dropdown-Menü zur Auswahl der Vergleichsvariablen
                           selectInput("Vergleichsvariable", "Zweite Variable auswählen:", choices = setNames(names(spalten), spalten)),
                           # Buttons zur Anzeige des Scatterplots oder zur Berechnung der Korrelation
-                          actionButton("scatterButton", "Scatter"),
+                          actionButton("scatterButton", "Scatterplot und Korrelation"),
                           actionButton("correlationButton", "Korrelation"),
                           # Dynamische Ausgabe des Scatterplots oder der Korrelationsergebnisse
                           plotOutput("dynamicPlot"),
@@ -140,6 +140,7 @@ server <- function(input, output, session) {
   output$violinPlot <- renderPlot({
     data <- filteredData()
     plot_title <- paste("Violinplot von", spalten[input$variable])
+    fill_color <- if (input$wineType == "Rotwein") "red" else if (input$wineType == "Weißwein") "#F5CBA7" else "black"
     
     if (input$options == "qualität_typ") {
       ggplot(data, aes(x = as.factor(qualität), y = .data[[input$variable]], fill = typ)) +
@@ -157,7 +158,7 @@ server <- function(input, output, session) {
       
     } else if (input$options == "qualität") {
       ggplot(data, aes(x = as.factor(qualität), y = .data[[input$variable]], fill = as.factor(qualität))) +
-        geom_violin(trim = FALSE, color = "black", alpha = 0.7) +
+        geom_violin(trim = FALSE, fill = fill_color,color = "black", alpha = 0.7) +
         geom_boxplot(width = 0.1, position = position_dodge(width = 0.9), color = "black", alpha = 0.5) +
         scale_fill_grey(start = 0.5, end = 1) +
         labs(
@@ -287,7 +288,7 @@ server <- function(input, output, session) {
     datatable(filteredData(), options = list(pageLength = 10), colnames = unname(spalten))
   })
   
-
+  
   
   # Rendern des dynamischen Scatterplots basierend auf den gefilterten Daten und der Weintyp-Auswahl
   observeEvent(input$scatterButton, {
@@ -340,12 +341,6 @@ server <- function(input, output, session) {
       theme_minimal()
   })
   
-  # Setze die Weintyp-Auswahl auf "Alle" zurück, wenn der Tab "Erweiterte Datenanalyse" ausgewählt wird
-  observeEvent(input$results, {
-    if (input$results == "Erweiterte Datenanalyse") {
-      updateRadioButtons(session, "wineType", selected = "all")
-    }
-  })
 }
 
 # App starten
