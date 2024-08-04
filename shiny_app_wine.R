@@ -93,14 +93,14 @@ ui <- fluidPage(
                    column(3,
                           # Dropdown-Menü zur Auswahl der Vergleichsvariablen
                           selectInput("Vergleichsvariable", "Zweite Variable auswählen:", choices = setNames(names(spalten), spalten))
-                          ),
+                   ),
                    column(9,
                           tags$div(style = "margin-top: 20px;"),
-                          # Button zur Anzeige des Scatterplots oder zur Berechnung der Korrelation
-                          actionButton("scatterButton", "Scatterplot und Korrelation einblenden")
-                          ),
+                          # Button zur Anzeige des Scatterplots und zur Berechnung der Korrelation
+                          actionButton("scatterButton", "Scatterplot und Korrelation ein-/ausblenden")
+                   ),
                    column(12,
-                          # Dynamische Ausgabe des Scatterplots und der Korrelationsergebnisse
+                          # Ausgabe des Scatterplots und der Korrelationsergebnisse
                           verbatimTextOutput("correlationResult"),
                           plotOutput("ScatterPlot")
                           
@@ -125,7 +125,7 @@ ui <- fluidPage(
                           selectInput("alpha", "Signifikanzniveau auswählen:", choices = c(0.1, 0.05, 0.01, 0.005, 0.001), selected = 0.05),
                    )
                  ),
-                fluidRow(
+                 fluidRow(
                    column(12,
                           # Überschrift für den Test
                           uiOutput("testHeader")),
@@ -152,9 +152,9 @@ server <- function(input, output, session) {
       subset(df, typ == input$wineType)
     }
   })
-
+  
   # Einleitungstext zu Erklärung der App 
-  output$intro <- renderText("Diese Applikation dient dazu, die Zusammenhänge \nzwischen der physiochemischen Weinzusammensetzung \nund der Qualität unter Beachtung der \nWeintypen zu erkennen.")
+  output$intro <- renderText("Diese Applikation dient dazu, die Zusammenhänge \nzwischen der physikochemischen Weinzusammensetzung \nund der Qualität unter Beachtung der \nWeintypen zu erkennen.")
   
   # Ausgabe der statistischen Werte der ausgewählten Variable
   output$statValues <- renderPrint({
@@ -171,6 +171,111 @@ server <- function(input, output, session) {
     cat("Interquartilsabstand (IQR):", IQR(data[[variable]]), "\n")
     cat("Schiefe:", e1071::skewness(data[[variable]]), "\n")
     cat("Kurtosis:", e1071::kurtosis(data[[variable]]), "\n")
+  })
+  
+  # Rendern des Histogramms basierend auf den gefilterten Daten und der Weintyp-Auswahl
+  output$histPlot <- renderPlot({
+    data <- filteredData()
+    variable <- input$variable
+    plot_color <- if (input$wineType == "Rotwein") "#990e03" else if (input$wineType == "Weißwein") "#cdf76f" else "black"
+    
+    ggplot(data, aes(x = .data[[variable]])) +
+      geom_histogram(aes(y = after_stat(density)), bins = 30, fill = plot_color, color = "black", alpha = 0.5) +
+      stat_function(fun = dnorm, args = list(mean = mean(data[[variable]]), sd = sd(data[[variable]])), color = "red", linewidth = 1) +
+      labs(
+        title = paste("Histogramm von", spalten[variable], einheiten[variable]),
+        x = paste(spalten[variable], einheiten[variable]),
+        y = "Dichte"
+      ) +
+      theme_minimal()
+  })
+  
+  # Rendern der Tabelle mit den gefilterten Daten
+  output$dataTable <- renderDataTable({
+    datatable(filteredData(), options = list(pageLength = 10), colnames = unname(spalten))
+  })
+  
+  # Reactive value to control plot visibility
+  plotVisible <- reactiveVal(FALSE)
+  
+  # Toggle the plot visibility when button is clicked
+  observeEvent(input$scatterButton, {
+    plotVisible(!plotVisible()) # Toggle the boolean value
+  })
+  
+  # Rendern des dynamischen Scatterplots basierend auf den gefilterten Daten und der Weintyp-Auswahl
+  output$ScatterPlot <- renderPlot({
+    if (plotVisible()) { # Check if the plot should be visible
+      data <- filteredData()
+      variable1 <- input$variable
+      variable2 <- input$Vergleichsvariable
+      point_color <- if (input$wineType == "Rotwein") "#990e03" else if (input$wineType == "Weißwein") "#cdf76f" else "black"
+      
+      ggplot(data, aes(x = .data[[variable1]], y = .data[[variable2]])) +
+        geom_point(color = point_color) +
+        labs(
+          title = paste("Scatterplot von", spalten[variable1], "und", spalten[variable2]),
+          x = spalten[variable1],
+          y = spalten[variable2]
+        ) +
+        theme_minimal()
+    }
+  })
+    # Berechnung und Ausgabe der Korrelation zwischen zwei Variablen basierend auf den gefilterten Daten
+  output$correlationResult <- renderPrint({
+    if (plotVisible()) { # Only calculate and show if the plot is visible
+      data <- filteredData()
+      variable1 <- input$variable
+      variable2 <- input$Vergleichsvariable
+      corr <- cor(data[[variable1]], data[[variable2]], use = "complete.obs")
+      
+      # Interpretation der Korrelation
+      corr_meaning <-  if (corr == -1) {
+        "perfekten negativen Zusammenhang"
+      } else if (corr == 1) {
+        "perfekten positiven Zusammenhang"
+      } else if (corr > -0.1 && corr < 0.1) {
+        "keinen Zusammenhang"
+      } else if (corr >= 0.1 && corr < 0.3) {
+        "einen geringen positiven Zusammenhang"
+      } else if (corr >= 0.3 && corr < 0.5) {
+        "einen mittleren positiven Zusammenhang"
+      } else if (corr >= 0.5 && corr < 0.7) {
+        "einen hohen positiven Zusammenhang"
+      } else if (corr >= 0.7 && corr < 1) {
+        "einen sehr hohen positiven Zusammenhang"
+      } else if (corr >= -0.3) {
+        "einen geringen negativen Zusammenhang"
+      } else if (corr >= -0.5) {
+        "einen mittleren negativen Zusammenhang"
+      } else if (corr >= -0.7) {
+        "einen hohen negativen Zusammenhang"
+      } else if (corr >= -1) {
+        "einen sehr hohen negativen Zusammenhang"
+        
+      } else {
+        "keinen gültigen Zusammenhang"
+      }
+      
+      cat("Die Korrelation zwischen", spalten[variable1], "und", spalten[variable2], "ist:", round(corr, 2), ".", "Zwischen den Variablen gibt es", corr_meaning)
+    }
+  })
+  
+  # Rendern des QQ-Plots basierend auf den gefilterten Daten und der Weintyp-Auswahl
+  output$qqPlot <- renderPlot({
+    data <- filteredData()
+    variable <- input$variable
+    point_color <- if (input$wineType == "Rotwein") "#990e03" else if (input$wineType == "Weißwein") "#cdf76f" else "black"
+    
+    ggplot(data.frame(sample = data[[variable]]), aes(sample = sample)) +
+      stat_qq(color = point_color) +
+      stat_qq_line() +
+      labs(
+        title = paste("QQ-Plot von", spalten[variable]),
+        x = "Theoretische Quantile",
+        y = "Beobachtete Quantile"
+      ) +
+      theme_minimal()
   })
   
   # Rendern der Testüberschrift basierend auf der Klassifizierungsoption
@@ -236,103 +341,6 @@ server <- function(input, output, session) {
     } else {
       cat("Bitte wählen Sie Qualität oder Weintyp, um die statistischen Tests durchzuführen.")
     }
-  })
-  
-  # Rendern des Histogramms basierend auf den gefilterten Daten und der Weintyp-Auswahl
-  output$histPlot <- renderPlot({
-    data <- filteredData()
-    variable <- input$variable
-    plot_color <- if (input$wineType == "Rotwein") "#990e03" else if (input$wineType == "Weißwein") "#cdf76f" else "black"
-    
-    ggplot(data, aes(x = .data[[variable]])) +
-      geom_histogram(aes(y = after_stat(density)), bins = 30, fill = plot_color, color = "black", alpha = 0.5) +
-      stat_function(fun = dnorm, args = list(mean = mean(data[[variable]]), sd = sd(data[[variable]])), color = "red", linewidth = 1) +
-      labs(
-        title = paste("Histogramm von", spalten[variable], einheiten[variable]),
-        x = paste(spalten[variable], einheiten[variable]),
-        y = "Dichte"
-      ) +
-      theme_minimal()
-  })
-  
-  # Rendern der Tabelle mit den gefilterten Daten
-  output$dataTable <- renderDataTable({
-    datatable(filteredData(), options = list(pageLength = 10), colnames = unname(spalten))
-  })
-  
-  
-  
-  # Rendern des dynamischen Scatterplots basierend auf den gefilterten Daten und der Weintyp-Auswahl
-  observeEvent(input$scatterButton, {
-    output$ScatterPlot <- renderPlot({
-      data <- filteredData()
-      variable1 <- input$variable
-      variable2 <- input$Vergleichsvariable
-      point_color <- if (input$wineType == "Rotwein") "#990e03" else if (input$wineType == "Weißwein") "#cdf76f" else "black"
-      
-      ggplot(data, aes(x = .data[[variable1]], y = .data[[variable2]])) +
-        geom_point(color = point_color) +
-        labs(
-          title = paste("Scatterplot von", spalten[variable1], "und", spalten[variable2]),
-          x = spalten[variable1],
-          y = spalten[variable2]
-        ) +
-        theme_minimal()
-    })
-    # Berechnung und Ausgabe der Korrelation zwischen zwei Variablen basierend auf den gefilterten Daten
-    output$correlationResult <- renderPrint({
-      data <- filteredData()
-      variable1 <- input$variable
-      variable2 <- input$Vergleichsvariable
-      corr <- cor(data[[variable1]], data[[variable2]], use = "complete.obs")
-      
-      # Interpretation der Korrelation
-      corr_meaning <-  if (corr == -1) {
-        "perfekten negativen Zusammenhang"
-      } else if (corr == 1) {
-        "perfekten positiven Zusammenhang"
-      } else if (corr > -0.1 && corr < 0.1) {
-        "keinen Zusammenhang"
-      } else if (corr >= 0.1 && corr < 0.3) {
-        "einen geringen positiven Zusammenhang"
-      } else if (corr >= 0.3 && corr < 0.5) {
-        "einen mittleren positiven Zusammenhang"
-      } else if (corr >= 0.5 && corr < 0.7) {
-        "einen hohen positiven Zusammenhang"
-      } else if (corr >= 0.7 && corr < 1) {
-        "einen sehr hohen positiven Zusammenhang"
-      } else if (corr >= -0.3) {
-        "einen geringen negativen Zusammenhang"
-      } else if (corr >= -0.5) {
-        "einen mittleren negativen Zusammenhang"
-      } else if (corr >= -0.7) {
-        "einen hohen negativen Zusammenhang"
-      } else if (corr >= -1) {
-        "einen sehr hohen negativen Zusammenhang"
-
-      } else {
-        "keinen gültigen Zusammenhang"
-      }
-      
-      cat("Die Korrelation zwischen", spalten[variable1], "und", spalten[variable2], "ist:", round(corr, 2), ".", "Zwischen den Variablen gibt es", corr_meaning)
-  })
-  })
-  
-  # Rendern des QQ-Plots basierend auf den gefilterten Daten und der Weintyp-Auswahl
-  output$qqPlot <- renderPlot({
-    data <- filteredData()
-    variable <- input$variable
-    point_color <- if (input$wineType == "Rotwein") "#990e03" else if (input$wineType == "Weißwein") "#cdf76f" else "black"
-    
-    ggplot(data.frame(sample = data[[variable]]), aes(sample = sample)) +
-      stat_qq(color = point_color) +
-      stat_qq_line() +
-      labs(
-        title = paste("QQ-Plot von", spalten[variable]),
-        x = "Theoretische Quantile",
-        y = "Beobachtete Quantile"
-      ) +
-      theme_minimal()
   })
   
   # Rendern des Violin-Plots basierend auf den gefilterten Daten und der Klassifizierungsoption
