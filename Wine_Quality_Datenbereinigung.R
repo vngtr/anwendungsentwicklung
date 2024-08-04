@@ -10,7 +10,8 @@ library(dplyr)
 library(e1071)
 
 # Pfad ändern
-setwd("C:/Users/jojoh/OneDrive/Dokumente/Studium/Data Science & Business Analytics/Term 6/Anwendungsentwicklung/Prüfungsleistung")
+# Den Pfad auf das aktuelle Verzeichnis des R-Skripts setzen
+setwd(dirname(getActiveDocumentContext()$path))
 
 # Datensatz einlesen
 df<-read.csv("winequalityN.csv")
